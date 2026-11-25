@@ -5,7 +5,8 @@
 # lives in one place, the gateway.
 #
 # Environment: OTEL_GATEWAY_ENDPOINT (host:port of the gateway's OTLP gRPC
-# receiver).
+# receiver), OTEL_HOST_ROOT (where the host filesystem is mounted, /hostfs
+# on the VM).
 
 extensions:
   health_check:
@@ -20,11 +21,11 @@ receivers:
       http:
         endpoint: 127.0.0.1:4318
 
-  # The host is mounted read-only at /hostfs. Only a handful of series are
+  # The host is mounted read-only at OTEL_HOST_ROOT. Only a handful of series are
   # scraped, once a minute: host metrics are billed by bytes after the free
   # 150 MiB per billing account (see docs/opentelemetry.md).
   hostmetrics:
-    root_path: /hostfs
+    root_path: ${env:OTEL_HOST_ROOT}
     collection_interval: 60s
     scrapers:
       cpu:

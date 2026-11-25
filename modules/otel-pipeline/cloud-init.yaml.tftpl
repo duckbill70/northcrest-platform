@@ -62,6 +62,7 @@ write_files:
         -v /:/hostfs:ro \
         -v /var/lib/docker/containers:/var/lib/docker/containers:ro \
         -e OTEL_GATEWAY_ENDPOINT=127.0.0.1:14317 \
+        -e OTEL_HOST_ROOT=/hostfs \
         ${image} --config=/etc/otelcol/agent.yaml
       ExecStop=/usr/bin/docker stop otel-agent
       Restart=always

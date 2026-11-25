@@ -99,6 +99,11 @@ run "gateway_boots_both_collectors" {
     condition     = strcontains(google_compute_instance.gateway.metadata["user-data"], "OTEL_BASELINE_SAMPLING_PERCENT=20")
     error_message = "The baseline sampling rate must reach the gateway."
   }
+
+  assert {
+    condition     = strcontains(google_compute_instance.gateway.metadata["user-data"], "OTEL_HOST_ROOT=/hostfs")
+    error_message = "The host agent must read host metrics from the /hostfs mount."
+  }
 }
 
 run "edge_is_bounded_and_stateless" {

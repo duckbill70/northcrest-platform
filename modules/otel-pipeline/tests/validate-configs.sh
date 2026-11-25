@@ -26,6 +26,7 @@ export OTEL_PROJECT_ID=ncair-ci-observability
 export OTEL_PIPELINE_PROJECT=ncair-ci-observability
 export OTEL_BASELINE_SAMPLING_PERCENT=20
 export OTEL_GATEWAY_ENDPOINT=127.0.0.1:14317
+export OTEL_HOST_ROOT=/ # /hostfs on the VM; must exist when validating
 export OTEL_CORS_ORIGINS='["https://ncair-ci-customer.web.app"]'
 export NORTHCREST_BUSINESS_UNIT=customer-channels
 export NORTHCREST_TIER=commercial
