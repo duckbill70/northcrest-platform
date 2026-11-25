@@ -9,7 +9,7 @@ variable "billing_account_id" {
 }
 
 variable "project_prefix" {
-  description = "Short, globally unique prefix for every project ID, for example \"ncair-7f3k\". Lowercase letters, digits and hyphens; keep it under 18 characters."
+  description = "Short, globally unique prefix for every project ID, for example \"ncair-7f3k\". Lowercase letters, digits and hyphens, at most 16 characters so <prefix>-observability fits the 30-character project ID limit."
   type        = string
 
   validation {
