@@ -1,0 +1,76 @@
+#cloud-config
+# Container-Optimized OS: /etc is rebuilt on every boot and cloud-init runs
+# again, so this file is the whole machine definition.
+
+write_files:
+  - path: /etc/otelcol/agent.yaml
+    permissions: "0644"
+    content: |
+      ${indent(6, agent_config)}
+
+  - path: /etc/otelcol/gateway.yaml
+    permissions: "0644"
+    content: |
+      ${indent(6, gateway_config)}
+
+  - path: /etc/systemd/system/otel-gateway.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=OpenTelemetry gateway (Google-Built Collector)
+      Wants=network-online.target
+      After=network-online.target docker.service
+      Requires=docker.service
+
+      [Service]
+      ExecStartPre=-/usr/bin/docker rm -f otel-gateway
+      ExecStart=/usr/bin/docker run --rm --name otel-gateway \
+        --network host \
+        --memory 400m \
+        --log-opt max-size=10m --log-opt max-file=3 \
+        -v /etc/otelcol:/etc/otelcol:ro \
+        -e OTEL_PROJECT_ID=${project_id} \
+        -e OTEL_BASELINE_SAMPLING_PERCENT=${baseline_sampling_percent} \
+        ${image} --config=/etc/otelcol/gateway.yaml
+      ExecStop=/usr/bin/docker stop otel-gateway
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # The agent runs as root, read-only, to read the host's /proc and Docker's
+  # container log files.
+  - path: /etc/systemd/system/otel-agent.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=OpenTelemetry host agent (Google-Built Collector)
+      Wants=network-online.target
+      After=network-online.target docker.service otel-gateway.service
+      Requires=docker.service
+
+      [Service]
+      ExecStartPre=-/usr/bin/docker rm -f otel-agent
+      ExecStart=/usr/bin/docker run --rm --name otel-agent \
+        --network host \
+        --memory 160m \
+        --user 0:0 \
+        --read-only \
+        --log-opt max-size=10m --log-opt max-file=3 \
+        -v /etc/otelcol:/etc/otelcol:ro \
+        -v /:/hostfs:ro \
+        -v /var/lib/docker/containers:/var/lib/docker/containers:ro \
+        -e OTEL_GATEWAY_ENDPOINT=127.0.0.1:14317 \
+        ${image} --config=/etc/otelcol/agent.yaml
+      ExecStop=/usr/bin/docker stop otel-agent
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - systemctl daemon-reload
+  - systemctl start otel-gateway.service
+  - systemctl start otel-agent.service

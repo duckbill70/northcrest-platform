@@ -38,11 +38,13 @@ locals {
         "cloudtrace.googleapis.com",
         "compute.googleapis.com",
         "eventarc.googleapis.com",
+        "iap.googleapis.com",
         "logging.googleapis.com",
         "monitoring.googleapis.com",
         "pubsub.googleapis.com",
         "run.googleapis.com",
         "storage.googleapis.com",
+        "telemetry.googleapis.com",
       ]
     }
     customer = {

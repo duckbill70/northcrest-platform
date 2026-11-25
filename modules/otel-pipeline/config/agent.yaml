@@ -1,0 +1,131 @@
+# Host agent: runs on the gateway VM next to the gateway, one per host.
+# Collects what only the host can see (host metrics, container logs) and
+# accepts OTLP from local tools such as k6, then hands everything to the
+# gateway on the same VM. It does no sampling or redaction itself: policy
+# lives in one place, the gateway.
+#
+# Environment: OTEL_GATEWAY_ENDPOINT (host:port of the gateway's OTLP gRPC
+# receiver).
+
+extensions:
+  health_check:
+    endpoint: 127.0.0.1:13134
+
+receivers:
+  # Default OTLP ports, so local tools need no configuration.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+      http:
+        endpoint: 127.0.0.1:4318
+
+  # The host is mounted read-only at /hostfs. Only a handful of series are
+  # scraped, once a minute: host metrics are billed by bytes after the free
+  # 150 MiB per billing account (see docs/opentelemetry.md).
+  hostmetrics:
+    root_path: /hostfs
+    collection_interval: 60s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.time:
+            enabled: false
+          system.cpu.utilization:
+            enabled: true
+      memory:
+        metrics:
+          system.memory.usage:
+            enabled: false
+          system.memory.utilization:
+            enabled: true
+      load: {}
+      filesystem:
+        include_mount_points:
+          mount_points: [".*stateful_partition$"]
+          match_type: regexp
+        metrics:
+          system.filesystem.usage:
+            enabled: false
+          system.filesystem.inodes.usage:
+            enabled: false
+          system.filesystem.utilization:
+            enabled: true
+      network:
+        include:
+          interfaces: ["eth0", "ens4"]
+          match_type: strict
+        metrics:
+          system.network.connections:
+            enabled: false
+          system.network.dropped:
+            enabled: false
+          system.network.packets:
+            enabled: false
+
+  # Logs of every container on the host (gateway, agent, later k6), from
+  # Docker's json-file driver.
+  filelog/containers:
+    include: [/var/lib/docker/containers/*/*-json.log]
+    include_file_path: true
+    start_at: end
+    operators:
+      - type: container
+        format: docker
+        add_metadata_from_filepath: false
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 120
+    spike_limit_mib: 30
+
+  # Stamps gce_instance identity (project, zone, instance id) on everything,
+  # so Cloud Monitoring files host metrics under the right VM.
+  resourcedetection:
+    detectors: [gcp]
+    timeout: 10s
+
+  resource/agent:
+    attributes:
+      - key: northcrest.collector.role
+        value: agent
+        action: upsert
+      - key: northcrest.business_unit
+        value: platform
+        action: insert
+      - key: northcrest.tier
+        value: shared
+        action: insert
+
+  batch:
+    timeout: 5s
+    send_batch_size: 200
+    send_batch_max_size: 200
+
+exporters:
+  otlp/gateway:
+    endpoint: ${env:OTEL_GATEWAY_ENDPOINT}
+    tls:
+      insecure: true # loopback only
+
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: warn
+    metrics:
+      level: none
+  pipelines:
+    metrics:
+      receivers: [hostmetrics, otlp]
+      processors: [memory_limiter, resourcedetection, resource/agent, batch]
+      exporters: [otlp/gateway]
+    logs:
+      receivers: [filelog/containers, otlp]
+      processors: [memory_limiter, resourcedetection, resource/agent, batch]
+      exporters: [otlp/gateway]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource/agent, batch]
+      exporters: [otlp/gateway]

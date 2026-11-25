@@ -136,6 +136,20 @@ run "groups_are_optional" {
   }
 }
 
+run "otel_pipeline_in_observability_project" {
+  command = plan
+
+  assert {
+    condition     = module.otel.topics["traces"] != null && length(module.otel.topics) == 3
+    error_message = "The OpenTelemetry pipeline must be deployed with one topic per signal."
+  }
+
+  assert {
+    condition     = contains(local.projects["observability"].services, "telemetry.googleapis.com")
+    error_message = "The observability project needs the Telemetry API for OTLP export."
+  }
+}
+
 run "rejects_prefix_that_overruns_project_ids" {
   command = plan
 
