@@ -1,0 +1,15 @@
+framework:
+  - terraform
+  - github_actions
+quiet: true
+compact: true
+skip-path:
+  - .build
+skip-check:
+  # Customer-managed encryption keys cost money (Cloud KMS is not free);
+  # Google-managed encryption is accepted for this demo estate.
+  - CKV_GCP_83
+  - CKV_GCP_81
+  # Data Access audit logs are billable log volume; Admin Activity audit
+  # logs are always on and free. Revisit for the flight operations folder.
+  - CKV2_GCP_5

@@ -1,0 +1,68 @@
+name: Terraform apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "org/**"
+      - "modules/**"
+      - ".terraform-version"
+      - ".github/workflows/terraform-apply.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two applies at once, and never cancel one half-way.
+concurrency:
+  group: terraform-apply-org
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  CHECKPOINT_DISABLE: "1"
+  TF_VERSION: "1.17.2" # keep in step with .terraform-version
+
+jobs:
+  apply:
+    name: Apply (org)
+    if: vars.GCP_WIF_PROVIDER != ''
+    runs-on: ubuntu-latest
+    # The production environment has a required reviewer. Only jobs in it can
+    # impersonate the apply service account (see bootstrap/wif.tf).
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_VAR_org_id: ${{ vars.GCP_ORG_ID }}
+      TF_VAR_billing_account_id: ${{ vars.GCP_BILLING_ACCOUNT }}
+      TF_VAR_seed_project_id: ${{ vars.GCP_SEED_PROJECT }}
+      TF_VAR_project_prefix: ${{ vars.GCP_PROJECT_PREFIX }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_directory_customer_id: ${{ vars.GCP_DIRECTORY_CUSTOMER_ID }}
+      TF_VAR_groups: ${{ vars.GCP_GROUPS || '{}' }}
+      TF_VAR_kill_switch_dry_run: ${{ vars.KILL_SWITCH_DRY_RUN || 'true' }}
+      TF_VAR_currency_code: ${{ vars.GCP_BILLING_CURRENCY || 'GBP' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TF_APPLY_SA }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform init
+        run: terraform -chdir=org init -backend-config="bucket=${{ vars.GCP_TF_STATE_BUCKET }}"
+
+      - name: terraform plan
+        run: terraform -chdir=org plan -no-color -out=tfplan
+
+      - name: terraform apply
+        run: terraform -chdir=org apply -no-color tfplan

@@ -1,0 +1,5 @@
+# Every change needs the platform owner. Add a second owner for
+# safety-critical paths once there is one (concept doc: two approvers).
+*                     @duckbill70
+/org/org-policies.tf  @duckbill70
+/modules/kill-switch/ @duckbill70
