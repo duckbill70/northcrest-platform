@@ -47,7 +47,7 @@ jobs:
           python -m pip install --quiet functions-framework pytest
           python -m pytest -q modules/kill-switch/function
 
-      - uses: terraform-linters/setup-tflint@v4
+      - uses: terraform-linters/setup-tflint@v6
       - name: tflint
         env:
           GITHUB_TOKEN: ${{ github.token }}
