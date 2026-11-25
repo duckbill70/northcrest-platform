@@ -135,3 +135,13 @@ run "groups_are_optional" {
     error_message = "Only the SRE org roles should be bound when only the SRE group is set."
   }
 }
+
+run "rejects_prefix_that_overruns_project_ids" {
+  command = plan
+
+  variables {
+    project_prefix = "ncair-abcdefghijk" # 17 chars + "-observability" = 31
+  }
+
+  expect_failures = [var.project_prefix]
+}

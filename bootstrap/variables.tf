@@ -13,8 +13,8 @@ variable "project_prefix" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{3,16}[a-z0-9]$", var.project_prefix))
-    error_message = "project_prefix must be 5 to 18 characters: lowercase letters, digits and hyphens, starting with a letter."
+    condition     = can(regex("^[a-z][a-z0-9-]{3,14}[a-z0-9]$", var.project_prefix))
+    error_message = "project_prefix must be 5 to 16 characters: lowercase letters, digits and hyphens, starting with a letter."
   }
 }
 

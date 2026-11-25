@@ -16,6 +16,11 @@ variable "seed_project_id" {
 variable "project_prefix" {
   description = "Same prefix used in bootstrap/, for example \"ncair-7f3k\"."
   type        = string
+
+  validation {
+    condition     = alltrue([for k in keys(local.projects) : length("${var.project_prefix}-${k}") <= 30])
+    error_message = "project_prefix is too long: every <prefix>-<project> ID must be 30 characters or fewer."
+  }
 }
 
 variable "region" {

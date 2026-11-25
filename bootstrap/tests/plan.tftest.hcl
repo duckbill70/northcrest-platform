@@ -70,3 +70,13 @@ run "rejects_bad_prefix" {
 
   expect_failures = [var.project_prefix]
 }
+
+run "rejects_prefix_that_overruns_project_ids" {
+  command = plan
+
+  variables {
+    project_prefix = "ncair-abcdefghijk" # 17 characters
+  }
+
+  expect_failures = [var.project_prefix]
+}
