@@ -16,8 +16,9 @@ trap 'rm -rf "$work"' EXIT
 base="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${version}"
 tarball="otelcol-contrib_${version}_linux_amd64.tar.gz"
 curl -sSfL -o "$work/$tarball" "$base/$tarball"
-curl -sSfL -o "$work/sums.txt" "$base/opentelemetry-collector-releases_otelcol-contrib_checksums.txt"
-(cd "$work" && grep " ${tarball}\$" sums.txt | sha256sum -c -)
+# Each release asset has a .sha256 file holding just the hex digest.
+expected="$(curl -sSfL "$base/$tarball.sha256" | awk '{print $1}')"
+(cd "$work" && echo "$expected  $tarball" | sha256sum -c -)
 tar -xzf "$work/$tarball" -C "$work" otelcol-contrib
 
 # Placeholder values for the environment each config expects.
