@@ -1,0 +1,83 @@
+name: Terraform drift check
+
+on:
+  schedule:
+    - cron: "17 5 * * *" # 05:17 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  CHECKPOINT_DISABLE: "1"
+  TF_VERSION: "1.17.2" # keep in step with .terraform-version
+
+jobs:
+  drift:
+    if: vars.GCP_WIF_PROVIDER != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+    env:
+      TF_VAR_org_id: ${{ vars.GCP_ORG_ID }}
+      TF_VAR_billing_account_id: ${{ vars.GCP_BILLING_ACCOUNT }}
+      TF_VAR_seed_project_id: ${{ vars.GCP_SEED_PROJECT }}
+      TF_VAR_project_prefix: ${{ vars.GCP_PROJECT_PREFIX }}
+      TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      TF_VAR_directory_customer_id: ${{ vars.GCP_DIRECTORY_CUSTOMER_ID }}
+      TF_VAR_groups: ${{ vars.GCP_GROUPS || '{}' }}
+      TF_VAR_kill_switch_dry_run: ${{ vars.KILL_SWITCH_DRY_RUN || 'true' }}
+      TF_VAR_currency_code: ${{ vars.GCP_BILLING_CURRENCY || 'GBP' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_TF_PLAN_SA }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform init
+        run: terraform -chdir=org init -backend-config="bucket=${{ vars.GCP_TF_STATE_BUCKET }}"
+
+      - name: terraform plan (detect drift)
+        id: plan
+        run: |
+          set +e
+          terraform -chdir=org plan -lock=false -no-color -detailed-exitcode > plan.txt 2>&1
+          code=$?
+          set -e
+          echo "exitcode=$code" >> "$GITHUB_OUTPUT"
+          cat plan.txt
+          # 0 = no drift, 2 = drift; anything else is a real failure.
+          if [ $code -ne 0 ] && [ $code -ne 2 ]; then exit $code; fi
+
+      - name: Open or update drift issue
+        if: steps.plan.outputs.exitcode == '2'
+        run: |
+          gh label create drift --color B60205 --description "Live state differs from Terraform" 2>/dev/null || true
+          {
+            echo "Nightly plan found changes that are not in code (run ${{ github.run_id }})."
+            echo
+            echo '<details><summary>Plan</summary>'
+            echo
+            echo '```'
+            head -c 60000 plan.txt
+            echo '```'
+            echo '</details>'
+          } > body.md
+          existing=$(gh issue list --label drift --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file body.md
+          else
+            gh issue create --title "Config drift detected in org stack" --label drift --body-file body.md
+          fi

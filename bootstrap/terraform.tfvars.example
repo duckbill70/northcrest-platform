@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (git-ignored) and fill in after Cloud Identity
+# and the Free Trial are set up.
+org_id             = "000000000000"
+billing_account_id = "000000-000000-000000"
+project_prefix     = "ncair-xxxx"
+region             = "us-central1"
+
+github_owner    = "duckbill70"
+github_owner_id = "28783106"
