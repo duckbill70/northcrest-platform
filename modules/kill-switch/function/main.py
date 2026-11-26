@@ -126,13 +126,18 @@ def _nothing_to_do(exc: Exception) -> bool:
     return any(marker in text for marker in _NOTHING_TO_DO)
 
 
-def _each(projects: list[str], fn, *args) -> None:
-    """Run an action per project; one failing project must not stop the rest."""
+def _each(projects: list[str], fn, *args, skip_disabled: bool = False) -> None:
+    """Run an action per project; one failing project must not stop the rest.
+
+    skip_disabled: treat a disabled API or missing billing as nothing to do.
+    Only for stop_vms and pause_jobs; a failed billing detach must stay an
+    ERROR, because spend carries on.
+    """
     for project in projects:
         try:
             fn(project, *args)
         except Exception as exc:  # noqa: BLE001
-            if _nothing_to_do(exc):
+            if skip_disabled and _nothing_to_do(exc):
                 log("INFO", "skipped, API off or no billing", project=project,
                     action=fn.__name__)
                 continue
@@ -154,9 +159,10 @@ def handle_budget(cloud_event: Any) -> None:
         **decision, dry_run=cfg["dry_run"])
 
     if decision["stop_load"]:
-        _each(cfg["target_projects"], stop_vms, cfg["vm_label"], cfg["dry_run"])
+        _each(cfg["target_projects"], stop_vms, cfg["vm_label"], cfg["dry_run"],
+              skip_disabled=True)
         _each(cfg["target_projects"], pause_jobs, cfg["region"],
-              cfg["job_prefix"], cfg["dry_run"])
+              cfg["job_prefix"], cfg["dry_run"], skip_disabled=True)
 
     if decision["detach_billing"]:
         _each(cfg["non_core_projects"], detach_billing, cfg["dry_run"])
