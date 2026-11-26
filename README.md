@@ -118,11 +118,15 @@ The tests mock the Google provider, so they need no account.
 
 ## Known limits and assumptions
 
-- **Linked-project limit:** new billing accounts can link only a small number
-  of projects (reports vary from 5 upwards) and a Free Trial account cannot
-  ask for more. This layout links 7. If the first apply fails with a billing
-  quota error, remove a project from `org/locals.tf` (for example fold
-  `airport-ops` into `flight-ops`) and re-apply.
+- **Linked-project limit:** the Free Trial billing account links at most 5
+  projects (the seed included), and a trial account cannot ask for more. So
+  `org/` leaves `airport-ops` and `commercial` unbilled by default
+  (`var.unbilled_projects`): their folders and projects exist, but their
+  workloads run in `customer` and `observability` (see the
+  `workload_projects` output). Flight operations always keeps its own
+  project. After upgrading to a paid account and getting the limit raised,
+  set `unbilled_projects = []` and re-apply to split them back out. The trial
+  also links an auto-created "My First Project"; unlink it to free a slot.
 - **Demo windows vs the budget:** GKE and Cloud SQL demo windows will exceed
   £10 gross. Raise `monthly_budget` (or set the kill switch to dry run) for
   those weeks, or the switch will stop them.

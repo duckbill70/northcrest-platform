@@ -7,3 +7,8 @@ output "project_id" {
 output "number" {
   value = google_project.this.number
 }
+
+output "billed" {
+  description = "Whether the project is linked to a billing account."
+  value       = var.billing_account_id != null
+}

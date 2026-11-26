@@ -6,6 +6,11 @@ output "projects" {
   value = { for k, m in module.project : k => m.project_id }
 }
 
+output "workload_projects" {
+  description = "Project each business unit deploys to. Differs from projects while a unit's own project is unbilled."
+  value       = { for k, home in local.workload_home : k => module.project[home].project_id }
+}
+
 output "non_core_projects" {
   description = "Projects that lose billing when the kill switch fires."
   value       = local.non_core_project_ids
