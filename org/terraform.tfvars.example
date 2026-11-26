@@ -13,3 +13,10 @@ alert_email        = "alerts@lab.clearwatertech.co"
 #   developers       = "nc-developers@lab.clearwatertech.co"
 #   safety_approvers = "nc-safety-approvers@lab.clearwatertech.co"
 # }
+
+# otel = {
+#   extra_web_origins         = ["https://northcrest.lab.clearwatertech.co"]
+#   baseline_sampling_percent = 20
+#   publisher_members         = ["serviceAccount:booking@ncair-xxxx-customer.iam.gserviceaccount.com"]
+#   pipeline_alert            = false
+# }

@@ -1,0 +1,254 @@
+# Gateway: one per estate, on the free e2-micro VM. Every signal from every
+# project passes through here, so this is where policy lives:
+#   - PII is scrubbed or pseudonymised before anything is stored
+#   - RED metrics are derived from every server span, before sampling
+#   - tail sampling keeps all errors, slow, safety-critical and fault-injection
+#     traces, and a baseline share of the rest
+#   - a metric allowlist keeps billable metric volume under control
+# It reads from Pub/Sub (fed by sidecars and the edge collector) and from the
+# host agent on the same VM, and writes to Google Cloud Observability.
+#
+# It runs on a VM rather than Cloud Run because tail sampling and span
+# metrics keep state and flush on timers. Cloud Run's request-based billing
+# throttles CPU between requests; keeping CPU allocated costs far more than
+# the free tier (see docs/opentelemetry.md).
+#
+# Environment: OTEL_PROJECT_ID, OTEL_BASELINE_SAMPLING_PERCENT.
+
+extensions:
+  health_check:
+    endpoint: 127.0.0.1:13133
+  googleclientauth: {}
+
+receivers:
+  # From the host agent and the gateway's own telemetry. Loopback only.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:14317
+
+  # One topic and subscription per signal, so a backlog in one does not
+  # hide another, and each shows separately on the pipeline dashboard.
+  googlecloudpubsub/traces:
+    project: ${env:OTEL_PROJECT_ID}
+    subscription: projects/${env:OTEL_PROJECT_ID}/subscriptions/otel-traces-gateway
+    encoding: otlp_proto_trace
+  googlecloudpubsub/metrics:
+    project: ${env:OTEL_PROJECT_ID}
+    subscription: projects/${env:OTEL_PROJECT_ID}/subscriptions/otel-metrics-gateway
+    encoding: otlp_proto_metric
+  googlecloudpubsub/logs:
+    project: ${env:OTEL_PROJECT_ID}
+    subscription: projects/${env:OTEL_PROJECT_ID}/subscriptions/otel-logs-gateway
+    encoding: otlp_proto_log
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 320
+    spike_limit_mib: 80
+
+  # Mask values that look like email addresses or payment card numbers in
+  # any attribute. Northcrest data is synthetic, but the control is real.
+  redaction:
+    allow_all_keys: true
+    blocked_values:
+      - "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+      - "\\b(?:4[0-9]{3}|5[1-5][0-9]{2}|3[47][0-9]{2})[ -]?[0-9]{4}[ -]?[0-9]{4}[ -]?[0-9]{1,4}\\b"
+    summary: info
+
+  # Pseudonymise passenger and crew identifiers (still joinable, no longer
+  # readable) and drop client network addresses.
+  transform/pseudonymise:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["northcrest.passenger_id"], SHA256(attributes["northcrest.passenger_id"])) where attributes["northcrest.passenger_id"] != nil
+          - set(attributes["northcrest.crew_id"], SHA256(attributes["northcrest.crew_id"])) where attributes["northcrest.crew_id"] != nil
+          - delete_key(attributes, "client.address")
+          - delete_key(attributes, "http.client_ip")
+          - delete_key(attributes, "network.peer.address")
+    log_statements:
+      - context: log
+        statements:
+          - set(attributes["northcrest.passenger_id"], SHA256(attributes["northcrest.passenger_id"])) where attributes["northcrest.passenger_id"] != nil
+          - set(attributes["northcrest.crew_id"], SHA256(attributes["northcrest.crew_id"])) where attributes["northcrest.crew_id"] != nil
+          - delete_key(attributes, "client.address")
+          - delete_key(attributes, "http.client_ip")
+          - delete_key(attributes, "network.peer.address")
+
+  # RED metrics come from server and consumer spans only, so a call is not
+  # counted twice (once by the caller, once by the callee).
+  filter/entry_spans:
+    error_mode: ignore
+    traces:
+      span:
+        - kind != SPAN_KIND_SERVER and kind != SPAN_KIND_CONSUMER
+
+  # Keep what matters, sample the rest. Policies are OR'ed: a trace is kept
+  # if any policy keeps it.
+  tail_sampling:
+    decision_wait: 15s
+    num_traces: 5000
+    expected_new_traces_per_sec: 20
+    decision_cache:
+      sampled_cache_size: 20000
+    policies:
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-slow
+        type: latency
+        latency:
+          threshold_ms: 2000
+      - name: keep-safety-critical
+        type: string_attribute
+        string_attribute:
+          key: northcrest.tier
+          values: [safety-critical]
+      - name: keep-fault-injection
+        type: string_attribute
+        string_attribute:
+          key: northcrest.fault.scenario
+          values: [".+"]
+          enabled_regex_matching: true
+      - name: baseline
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${env:OTEL_BASELINE_SAMPLING_PERCENT}
+
+  # Span metrics are per service, not per instance: drop instance-level
+  # resource attributes so each service is one time series, not one per
+  # Cloud Run instance.
+  transform/red_resource:
+    error_mode: ignore
+    metric_statements:
+      - context: resource
+        statements:
+          - keep_keys(attributes, ["service.name", "service.namespace"])
+
+  # Cost guard. Metrics are billed by bytes after the free 150 MiB per
+  # billing account; a single high-cardinality metric can cost more than the
+  # whole estate. Only metrics on this list are exported, by exact name for
+  # Northcrest's own metrics (never a prefix: the edge is public, so a prefix
+  # would let anyone create new series). Adding a metric is a pull request
+  # against this file.
+  #   northcrest.red.calls / northcrest.red.duration  span metrics below
+  #   northcrest.web.lcp / .inp / .cls                browser Core Web Vitals
+  filter/metric_allowlist:
+    error_mode: ignore
+    metrics:
+      metric:
+        - 'not IsMatch(name, "^(system\\.(cpu|memory|filesystem)\\.utilization|system\\.cpu\\.load_average\\..+|system\\.network\\.io|otelcol_(exporter|receiver|processor)_.+|northcrest\\.red\\.(calls|duration)|northcrest\\.web\\.(lcp|inp|cls)|k6_.+)$")'
+
+  # Traces and logs go to the observability project: one place to search.
+  # The source project stays visible as cloud.account.id.
+  resource/gcp_project_id:
+    attributes:
+      - key: gcp.project_id
+        value: ${env:OTEL_PROJECT_ID}
+        action: insert
+
+  resource/gateway:
+    attributes:
+      - key: northcrest.pipeline
+        value: gateway
+        action: upsert
+
+  # From Google's recommended configuration for the Telemetry API: keep
+  # instrumentation scope and service labels visible in Cloud Logging.
+  transform/logs_scope:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(attributes["instrumentation_source"], instrumentation_scope.name) where instrumentation_scope.name != ""
+          - set(attributes["instrumentation_version"], instrumentation_scope.version) where instrumentation_scope.version != ""
+          - set(attributes["service.name"], resource.attributes["service.name"]) where resource.attributes["service.name"] != nil
+          - set(attributes["service.namespace"], resource.attributes["service.namespace"]) where resource.attributes["service.namespace"] != nil
+
+  # Google Cloud limits: at most 200 entries per request, at most one write
+  # per time series every 5 seconds.
+  batch:
+    timeout: 5s
+    send_batch_size: 200
+    send_batch_max_size: 200
+
+connectors:
+  forward/red: {}
+  forward/sample: {}
+
+  spanmetrics:
+    namespace: northcrest.red
+    histogram:
+      explicit:
+        buckets: [50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+    # One series per service, tier and status. span.name is excluded on
+    # purpose: per-route series multiply the bill (docs/opentelemetry.md).
+    exclude_dimensions: [span.name, span.kind]
+    dimensions:
+      - name: northcrest.tier
+    resource_metrics_key_attributes: [service.name]
+    metrics_flush_interval: 120s
+    metrics_expiration: 30m
+
+exporters:
+  # Traces and logs: OTLP straight to the Google Cloud Telemetry API.
+  otlp/google:
+    endpoint: telemetry.googleapis.com:443
+    balancer_name: pick_first
+    auth:
+      authenticator: googleclientauth
+
+  # Metrics: the googlecloud exporter writes workload.googleapis.com metrics,
+  # billed by bytes with 150 MiB free. OTLP metrics through the Telemetry API
+  # are billed by sample with no free tier, so they are not used here.
+  googlecloud:
+    project: ${env:OTEL_PROJECT_ID}
+    metric:
+      prefix: workload.googleapis.com
+
+service:
+  extensions: [health_check, googleclientauth]
+  telemetry:
+    logs:
+      level: info
+    # The gateway reports on itself through its own pipeline: exported,
+    # refused and dropped counts end up on the pipeline dashboard.
+    metrics:
+      level: basic
+      readers:
+        - periodic:
+            interval: 60000
+            exporter:
+              otlp:
+                protocol: grpc
+                endpoint: http://127.0.0.1:14317
+                insecure: true
+  pipelines:
+    traces/ingest:
+      receivers: [googlecloudpubsub/traces, otlp]
+      processors: [memory_limiter, redaction, transform/pseudonymise]
+      exporters: [forward/red, forward/sample]
+    traces/red:
+      receivers: [forward/red]
+      processors: [filter/entry_spans]
+      exporters: [spanmetrics]
+    traces/export:
+      receivers: [forward/sample]
+      processors: [tail_sampling, resource/gcp_project_id, resource/gateway, batch]
+      exporters: [otlp/google]
+    metrics/red:
+      receivers: [spanmetrics]
+      processors: [transform/red_resource, batch]
+      exporters: [googlecloud]
+    metrics:
+      receivers: [googlecloudpubsub/metrics, otlp]
+      processors: [memory_limiter, filter/metric_allowlist, batch]
+      exporters: [googlecloud]
+    logs:
+      receivers: [googlecloudpubsub/logs, otlp]
+      processors: [memory_limiter, redaction, transform/pseudonymise, resource/gcp_project_id, resource/gateway, transform/logs_scope, batch]
+      exporters: [otlp/google]

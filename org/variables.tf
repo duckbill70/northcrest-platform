@@ -79,3 +79,14 @@ variable "groups" {
   })
   default = {}
 }
+
+variable "otel" {
+  description = "OpenTelemetry pipeline settings. publisher_members are the runtime service accounts of services that run the collector sidecar."
+  type = object({
+    extra_web_origins         = optional(list(string), [])
+    baseline_sampling_percent = optional(number, 20)
+    publisher_members         = optional(list(string), [])
+    pipeline_alert            = optional(bool, false)
+  })
+  default = {}
+}

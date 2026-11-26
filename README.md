@@ -31,9 +31,11 @@ org/                  Applied by CI on merge to main
   iam.tf              Group-based access (optional until groups exist)
   observability.tf    Metrics scope, alert channel, billing export dataset
   budgets.tf          Estate and per-folder budgets, kill switch wiring
+  telemetry.tf        OpenTelemetry pipeline in the observability project
   tests/              terraform test, mocked provider
 modules/project/      A project: folder, billing, no default network, APIs
 modules/kill-switch/  Pub/Sub + Cloud Run function acting on budget alerts
+modules/otel-pipeline/ OpenTelemetry agents, edge and gateway collectors
 .github/workflows/    PR checks and plan, gated apply, nightly drift check
 ```
 
@@ -57,7 +59,7 @@ monitoring and the switch itself keep working. The other three lose billing.
 
 | Event | Workflow | Identity | What happens |
 |---|---|---|---|
-| Pull request | `terraform-pr.yml` | none, then `tf-plan` | fmt, validate, `terraform test`, kill switch unit tests, tflint, Checkov; then a plan posted as a PR comment |
+| Pull request | `terraform-pr.yml` | none, then `tf-plan` | fmt, validate, `terraform test`, kill switch unit tests, collector config validation, tflint, Checkov; then a plan posted as a PR comment |
 | Merge to `main` | `terraform-apply.yml` | `tf-apply` | Waits for approval on the `production` environment, then plans and applies |
 | 05:17 UTC daily | `terraform-drift.yml` | `tf-plan` | Plans against live state and opens or updates a `drift` issue if anything changed outside code |
 
@@ -91,12 +93,24 @@ starts.
   It starts in **dry run** and only logs; switch it on with the
   `KILL_SWITCH_DRY_RUN` repository variable after a test (see runbook).
 
+## Telemetry
+
+Every service, browser and host reports through OpenTelemetry: sidecar and
+host agents, a public edge collector on Cloud Run for browsers, and one
+gateway on the free e2-micro VM that redacts, derives RED metrics, tail
+samples and exports to Cloud Trace, Logging and Monitoring. Pub/Sub sits in
+between, so no project needs a network path to the gateway and nothing is
+lost while it restarts. Design, free-tier budget and runbook:
+[docs/opentelemetry.md](docs/opentelemetry.md).
+
 ## Testing locally
 
 ```
 terraform fmt -check -recursive
 (cd bootstrap && terraform init -backend=false && terraform test)
 (cd org && terraform init -backend=false && terraform test)
+(cd modules/otel-pipeline && terraform init -backend=false && terraform test)
+modules/otel-pipeline/tests/validate-configs.sh   # downloads otelcol-contrib
 python -m pytest modules/kill-switch/function
 ```
 

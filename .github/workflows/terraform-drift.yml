@@ -32,6 +32,7 @@ jobs:
       TF_VAR_groups: ${{ vars.GCP_GROUPS || '{}' }}
       TF_VAR_kill_switch_dry_run: ${{ vars.KILL_SWITCH_DRY_RUN || 'true' }}
       TF_VAR_currency_code: ${{ vars.GCP_BILLING_CURRENCY || 'GBP' }}
+      TF_VAR_otel: ${{ vars.OTEL_SETTINGS || '{}' }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7

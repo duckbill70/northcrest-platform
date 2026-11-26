@@ -34,13 +34,18 @@ jobs:
 
       - name: terraform validate and test (offline, mocked provider)
         run: |
-          for dir in bootstrap org; do
+          for dir in bootstrap org modules/otel-pipeline; do
             echo "::group::$dir"
             terraform -chdir=$dir init -backend=false
             terraform -chdir=$dir validate
             terraform -chdir=$dir test
             echo "::endgroup::"
           done
+
+      - name: OpenTelemetry Collector config validation
+        env:
+          OTELCOL_VERSION: "0.165.0" # keep close to collector_image in modules/otel-pipeline
+        run: modules/otel-pipeline/tests/validate-configs.sh
 
       - name: Kill switch unit tests
         run: |
@@ -82,6 +87,7 @@ jobs:
       TF_VAR_groups: ${{ vars.GCP_GROUPS || '{}' }}
       TF_VAR_kill_switch_dry_run: ${{ vars.KILL_SWITCH_DRY_RUN || 'true' }}
       TF_VAR_currency_code: ${{ vars.GCP_BILLING_CURRENCY || 'GBP' }}
+      TF_VAR_otel: ${{ vars.OTEL_SETTINGS || '{}' }}
     steps:
       - uses: actions/checkout@v7
 

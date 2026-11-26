@@ -18,3 +18,13 @@ output "budget_topic" {
 output "alert_channel" {
   value = google_monitoring_notification_channel.email.id
 }
+
+output "otel_edge_url" {
+  description = "Public OTLP/HTTP endpoint for browser and synthetic telemetry."
+  value       = module.otel.edge_url
+}
+
+output "otel_topics" {
+  description = "Pub/Sub ingest topics for collector sidecars."
+  value       = module.otel.topics
+}
