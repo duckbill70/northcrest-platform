@@ -185,9 +185,11 @@ connectors:
     histogram:
       explicit:
         buckets: [50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
-    # One series per service, tier and status. span.name is excluded on
-    # purpose: per-route series multiply the bill (docs/opentelemetry.md).
-    exclude_dimensions: [span.name, span.kind]
+    # One series per service, tier, span kind and status. span.name is
+    # excluded on purpose: per-route series multiply the bill
+    # (docs/opentelemetry.md). span.kind stays, so SLOs can count server
+    # spans (requests) only, not each request's database and internal spans.
+    exclude_dimensions: [span.name]
     dimensions:
       - name: northcrest.tier
     resource_metrics_key_attributes: [service.name]

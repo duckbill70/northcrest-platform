@@ -260,3 +260,27 @@ run "passenger_platform" {
     error_message = "Hosting site IDs must carry the project prefix."
   }
 }
+
+run "passenger_slos" {
+  command = plan
+
+  assert {
+    condition     = toset(keys(google_monitoring_slo.passenger)) == toset(["booking-availability", "booking-latency", "status-availability"])
+    error_message = "Expected the three passenger SLOs."
+  }
+
+  assert {
+    condition     = google_monitoring_slo.passenger["booking-latency"].request_based_sli[0].distribution_cut[0].range[0].max == 500
+    error_message = "The booking latency SLO counts requests under 500 ms as good."
+  }
+
+  assert {
+    condition     = length(google_monitoring_alert_policy.slo_burn) == 6
+    error_message = "Each SLO needs a fast and a slow burn-rate alert."
+  }
+
+  assert {
+    condition     = alltrue([for s in google_monitoring_slo.passenger : s.project == "ncair-test-observability"])
+    error_message = "SLOs live in the observability project, next to the metrics they read."
+  }
+}
