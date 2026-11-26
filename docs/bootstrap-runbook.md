@@ -77,6 +77,14 @@ terraform plan
 terraform apply
 ```
 
+Check the repository's OIDC subject format first:
+`gh api repos/<owner>/northcrest-platform/actions/oidc/customization/sub`.
+If it shows `"use_immutable_subject": true`, set `platform_repository_id` in
+`terraform.tfvars` to the repository's numeric ID (`gh api
+repos/<owner>/northcrest-platform --jq .id`). Otherwise the apply job is
+refused with `iam.serviceAccounts.getAccessToken` denied, because its token
+subject is `repo:<owner>@<owner_id>/<repo>@<repo_id>:environment:production`.
+
 Then move its state into the bucket it created:
 
 ```

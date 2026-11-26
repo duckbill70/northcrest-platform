@@ -52,6 +52,19 @@ run "apply_only_from_protected_environment" {
   }
 }
 
+run "apply_subject_with_immutable_ids" {
+  command = plan
+
+  variables {
+    platform_repository_id = "1472024379"
+  }
+
+  assert {
+    condition     = google_service_account_iam_member.apply_wif.member == "principal://iam.googleapis.com/projects/222222222222/locations/global/workloadIdentityPools/github/subject/repo:example-owner@42/northcrest-platform@1472024379:environment:production"
+    error_message = "With a repository ID, the apply subject must use GitHub's immutable form."
+  }
+}
+
 run "state_bucket_is_private_and_versioned" {
   command = plan
 

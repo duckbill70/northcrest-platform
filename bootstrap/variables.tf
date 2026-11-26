@@ -46,6 +46,17 @@ variable "platform_repository" {
   default     = "northcrest-platform"
 }
 
+variable "platform_repository_id" {
+  description = "Numeric GitHub ID of the platform repository. Set it when the repository uses immutable OIDC subjects (gh api repos/<owner>/<repo>/actions/oidc/customization/sub shows use_immutable_subject = true); the token subject is then repo:<owner>@<owner_id>/<repo>@<repo_id>:... instead of repo:<owner>/<repo>:..."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^[0-9]*$", var.platform_repository_id))
+    error_message = "platform_repository_id must be the numeric repository ID, or empty."
+  }
+}
+
 variable "apply_environment" {
   description = "GitHub Environment that apply jobs must run in. Only jobs in this environment can impersonate the apply service account."
   type        = string
