@@ -176,7 +176,7 @@ resource "google_service_account_iam_member" "deployer_wif" {
     for key, subjects in local.deploy_subjects : [for i, s in subjects : { key = "${key}/${i}", repo = key, subject = s }]
   ]) : pair.key => pair }
 
-  service_account_id = google_service_account.deployer[each.value.repo].name
+  service_account_id = google_service_account.deployer[each.value.repo].id
   role               = "roles/iam.workloadIdentityUser"
   member             = "principal://iam.googleapis.com/${local.wif_pool}/subject/${each.value.subject}"
 }
@@ -207,7 +207,7 @@ resource "google_artifact_registry_repository_iam_member" "deploy_services" {
 resource "google_service_account_iam_member" "deploy_services_act_as" {
   for_each = google_service_account.passenger_api
 
-  service_account_id = each.value.name
+  service_account_id = each.value.id
   role               = "roles/iam.serviceAccountUser"
   member             = google_service_account.deployer["services"].member
 }
