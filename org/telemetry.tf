@@ -10,13 +10,21 @@ module "otel" {
 
   # Firebase Hosting default domains for the customer apps, plus any custom
   # domain (for example the clearwatertech.co subdomain) once it exists.
-  web_origins = concat([
-    "https://${module.project["customer"].project_id}.web.app",
-    "https://${module.project["customer"].project_id}.firebaseapp.com",
-  ], var.otel.extra_web_origins)
+  web_origins = concat(
+    [
+      "https://${module.project["customer"].project_id}.web.app",
+      "https://${module.project["customer"].project_id}.firebaseapp.com",
+    ],
+    flatten([for site in local.passenger_sites : ["https://${site}.web.app", "https://${site}.firebaseapp.com"]]),
+    var.otel.extra_web_origins,
+  )
 
   baseline_sampling_percent = var.otel.baseline_sampling_percent
-  publisher_members         = var.otel.publisher_members
-  iap_ssh_members           = var.groups.sre == "" ? [] : ["group:${var.groups.sre}"]
-  pipeline_alert_channels   = var.otel.pipeline_alert ? [google_monitoring_notification_channel.email.id] : []
+  # The passenger APIs run the collector sidecar, so they publish telemetry.
+  publisher_members = concat(
+    [for sa in google_service_account.passenger_api : sa.member],
+    var.otel.publisher_members,
+  )
+  iap_ssh_members         = var.groups.sre == "" ? [] : ["group:${var.groups.sre}"]
+  pipeline_alert_channels = var.otel.pipeline_alert ? [google_monitoring_notification_channel.email.id] : []
 }

@@ -25,6 +25,11 @@ mock_provider "google" {
       id = "projects/ncair-test-observability/notificationChannels/1"
     }
   }
+  mock_data "google_project" {
+    defaults = {
+      number = "333333333333"
+    }
+  }
   mock_resource "google_service_account" {
     defaults = {
       email  = "sa@ncair-test-observability.iam.gserviceaccount.com"
@@ -32,6 +37,10 @@ mock_provider "google" {
       id     = "projects/ncair-test-observability/serviceAccounts/sa@ncair-test-observability.iam.gserviceaccount.com"
     }
   }
+}
+
+mock_provider "google-beta" {
+  override_during = plan
 }
 
 # imports.tf adopts these; mock providers can't import, so stub them.
@@ -218,4 +227,28 @@ run "rejects_prefix_that_overruns_project_ids" {
   }
 
   expect_failures = [var.project_prefix]
+}
+
+run "passenger_platform" {
+  command = plan
+
+  assert {
+    condition     = google_firestore_database.passenger.project == "ncair-test-customer" && google_firestore_database.passenger.name == "(default)" && google_firestore_database.passenger.location_id == "us-central1"
+    error_message = "The passenger Firestore must be the free (default) database in the customer project, in us-central1."
+  }
+
+  assert {
+    condition     = toset(keys(google_service_account.passenger_api)) == toset(["booking-api", "flight-status-api"])
+    error_message = "Expected one runtime account per passenger API."
+  }
+
+  assert {
+    condition     = google_service_account_iam_member.deployer_wif["services"].member == "principalSet://iam.googleapis.com/projects/333333333333/locations/global/workloadIdentityPools/github/attribute.repository/duckbill70/northcrest-services"
+    error_message = "Only northcrest-services may use the services deploy account."
+  }
+
+  assert {
+    condition     = google_firebase_hosting_site.passenger["booking"].site_id == "ncair-test-booking"
+    error_message = "Hosting site IDs must carry the project prefix."
+  }
 }

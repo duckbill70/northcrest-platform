@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 8.12"
     }
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "~> 8.12"
+    }
     archive = {
       source  = "hashicorp/archive"
       version = "~> 2.8"
@@ -28,6 +32,17 @@ provider "google" {
   # the seed. Project-less calls (folders, org policy, budgets) still use the
   # seed. Needs serviceusage.services.use on each project (bootstrap grants
   # serviceUsageConsumer at org level to both Terraform accounts).
+  user_project_override = true
+
+  default_labels = {
+    managed-by = "terraform"
+    repo       = "northcrest-platform"
+  }
+}
+
+# Firebase project and Hosting sites exist only in the beta provider.
+provider "google-beta" {
+  region                = var.region
   user_project_override = true
 
   default_labels = {

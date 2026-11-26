@@ -96,3 +96,9 @@ variable "otel" {
   })
   default = {}
 }
+
+variable "github_owner" {
+  description = "GitHub owner of the Northcrest repositories that deploy with Workload Identity Federation."
+  type        = string
+  default     = "duckbill70"
+}

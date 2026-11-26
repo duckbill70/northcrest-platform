@@ -52,13 +52,16 @@ locals {
       folder = "customer-channels"
       core   = true
       services = [
+        "artifactregistry.googleapis.com",
         "cloudfunctions.googleapis.com",
         "cloudscheduler.googleapis.com",
         "cloudtrace.googleapis.com",
         "compute.googleapis.com",
         "firebase.googleapis.com",
         "firebasehosting.googleapis.com",
+        "firebaserules.googleapis.com",
         "firestore.googleapis.com",
+        "iamcredentials.googleapis.com",
         "pubsub.googleapis.com",
         "run.googleapis.com",
       ]
