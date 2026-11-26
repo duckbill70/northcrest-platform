@@ -1,5 +1,7 @@
-# Copy to backend.tf after the first bootstrap apply, set the bucket name
-# from `terraform output state_bucket`, then run:
+# After the first bootstrap apply, read the bucket name BEFORE copying this
+# file (terraform output fails once backend.tf exists and is not initialised):
+#   BUCKET=$(terraform output -raw state_bucket)
+# Then copy this to backend.tf, set bucket to $BUCKET, and run:
 #   terraform init -migrate-state
 terraform {
   backend "gcs" {

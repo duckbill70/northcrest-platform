@@ -80,9 +80,14 @@ terraform apply
 Then move its state into the bucket it created:
 
 ```
-cp backend.tf.example backend.tf   # set bucket = $(terraform output -raw state_bucket)
+BUCKET=$(terraform output -raw state_bucket)   # read this before backend.tf exists
+cp backend.tf.example backend.tf
+sed -i.bak "s/REPLACE_WITH_STATE_BUCKET/$BUCKET/" backend.tf && rm backend.tf.bak
 terraform init -migrate-state
 ```
+
+Read the bucket name first. Once `backend.tf` exists, Terraform refuses to run
+`terraform output` until you run `init`, so the bucket name comes back empty.
 
 `backend.tf` is git-ignored because it holds your bucket name; keep a copy.
 
