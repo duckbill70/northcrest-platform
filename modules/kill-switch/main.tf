@@ -66,6 +66,16 @@ resource "google_project_iam_member" "billing" {
   member  = google_service_account.runtime.member
 }
 
+# Reading a project's billing info needs resourcemanager.projects.get,
+# which billing.projectManager lacks. Browser is the smallest role with it.
+resource "google_project_iam_member" "billing_read" {
+  for_each = toset(var.non_core_project_ids)
+
+  project = each.value
+  role    = "roles/browser"
+  member  = google_service_account.runtime.member
+}
+
 # Eventarc checks that the trigger's account may use the project.
 resource "google_project_iam_member" "service_usage" {
   project = var.project_id
