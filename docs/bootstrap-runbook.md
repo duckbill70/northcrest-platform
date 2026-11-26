@@ -25,7 +25,13 @@ are ready to run step 4 onwards.
 4. Optional now, needed for `iam.tf`: create groups in the Admin console,
    for example `gcp-org-admins@`, `nc-sre@`, `nc-developers@`,
    `nc-safety-approvers@`.
-5. Note the **customer ID** (Admin console > Account > Account settings,
+5. **Create the organisation.** Verifying the domain is not always enough,
+   and creating a project did not trigger it either. Sign in to
+   https://console.cloud.google.com/cloud-setup/organization as the super
+   admin and complete only the **Organisation** step. Ignore the other setup
+   steps; Terraform does those. The project picker should then list
+   `lab.clearwatertech.co` as an organisation.
+6. Note the **customer ID** (Admin console > Account > Account settings,
    starts with `C`) for `directory_customer_id`.
 
 ## 2. Pick names
@@ -74,9 +80,14 @@ terraform apply
 Then move its state into the bucket it created:
 
 ```
-cp backend.tf.example backend.tf   # set bucket = $(terraform output -raw state_bucket)
+BUCKET=$(terraform output -raw state_bucket)   # read this before backend.tf exists
+cp backend.tf.example backend.tf
+sed -i.bak "s/REPLACE_WITH_STATE_BUCKET/$BUCKET/" backend.tf && rm backend.tf.bak
 terraform init -migrate-state
 ```
+
+Read the bucket name first. Once `backend.tf` exists, Terraform refuses to run
+`terraform output` until you run `init`, so the bucket name comes back empty.
 
 `backend.tf` is git-ignored because it holds your bucket name; keep a copy.
 
@@ -87,7 +98,18 @@ If an API call complains about a missing quota project, run
 
 `terraform output github_repository_variables` prints most of these. Add
 them under Settings > Secrets and variables > Actions > **Variables** (none
-are secrets):
+are secrets). With the GitHub CLI, from `bootstrap/`:
+
+```
+terraform output -json github_repository_variables | \
+  jq -r 'to_entries[] | "\(.key)\t\(.value)"' | \
+  while IFS=$'\t' read k v; do gh variable set "$k" --body "$v"; done
+gh variable set KILL_SWITCH_DRY_RUN --body "true"
+gh variable set ALERT_EMAIL --body "<an address you read>"
+```
+
+The repo is public and `ALERT_EMAIL` appears in plan comments, so consider
+an alias.
 
 | Variable | Example |
 |---|---|
@@ -111,7 +133,9 @@ are secrets):
    `Plan (org)` job comments the plan: expect 5 folders, 6 projects, org
    policies, budgets and the kill switch.
 2. Merge. `Terraform apply` waits for your approval on `production`;
-   approve it.
+   approve it. The apply only runs on its own for changes under `org/`,
+   `modules/` or `.terraform-version`; after a docs-only merge, start it from
+   Actions > Terraform apply > Run workflow.
 3. If it fails with a billing quota error, see "Linked-project limit" in the
    README.
 

@@ -102,7 +102,17 @@ jobs:
           terraform_wrapper: false
 
       - name: terraform init
-        run: terraform -chdir=org init -backend-config="bucket=${{ vars.GCP_TF_STATE_BUCKET }}"
+        # The read-only plan account can't create the first (empty) state
+        # object or its lock. Before the first apply there is no org state,
+        # so plan against an empty local state instead.
+        run: |
+          if gcloud storage ls "gs://${{ vars.GCP_TF_STATE_BUCKET }}/org/default.tfstate" > /dev/null 2>&1; then
+            terraform -chdir=org init -backend-config="bucket=${{ vars.GCP_TF_STATE_BUCKET }}"
+          else
+            echo "::notice::No org state yet (before the first apply): planning against empty local state."
+            printf 'terraform {\n  backend "local" {}\n}\n' > org/backend_override.tf
+            terraform -chdir=org init
+          fi
 
       - name: terraform plan
         id: plan
