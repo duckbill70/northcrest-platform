@@ -185,6 +185,32 @@ usage cost** into project `<prefix>-observability`, dataset `billing_export`.
 3. Set the repository variable `KILL_SWITCH_DRY_RUN` to `false` and re-run
    the apply workflow.
 
+## 10. Turn on trace storage (once, by hand)
+
+The gateway sends traces to `telemetry.googleapis.com`, but the observability
+project has nowhere to keep them until someone initialises trace storage in
+the console. Terraform can't do this step yet, and until it's done Trace
+explorer shows "Trace storage is not initialised" and the gateway's trace
+exports fail.
+
+1. Grant yourself the two roles the Enable button checks for, on the
+   observability project:
+
+   ```sh
+   for role in roles/cloudtrace.admin roles/telemetry.tracesWriter; do
+     gcloud projects add-iam-policy-binding <prefix>-observability \
+       --member="user:<you>@<domain>" --role="$role"
+   done
+   ```
+
+2. Open Trace explorer in the observability project and click **Enable** on
+   the banner.
+3. Load a page on one of the passenger sites. Its trace should appear within
+   a minute or two.
+
+You can remove the two roles afterwards; the gateway writes with its own
+service account.
+
 ## Undoing things
 
 - The seed project and workload projects have `deletion_policy = "PREVENT"`
