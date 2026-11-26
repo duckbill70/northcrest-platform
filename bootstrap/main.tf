@@ -2,8 +2,8 @@ locals {
   seed_project_id = "${var.project_prefix}-seed"
 
   # APIs the seed project needs. Org-level calls made by the Terraform service
-  # accounts are billed and quota-checked against this project
-  # (user_project_override in the org stack), so their APIs must be on here.
+  # accounts (folders, org policy, budgets) are billed and quota-checked
+  # against this project, the accounts' home, so their APIs must be on here.
   seed_services = [
     "billingbudgets.googleapis.com",
     "cloudbilling.googleapis.com",

@@ -8,11 +8,6 @@ variable "billing_account_id" {
   type        = string
 }
 
-variable "seed_project_id" {
-  description = "Seed project created by bootstrap/."
-  type        = string
-}
-
 variable "project_prefix" {
   description = "Same prefix used in bootstrap/, for example \"ncair-7f3k\"."
   type        = string

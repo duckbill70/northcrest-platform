@@ -52,7 +52,6 @@ override_resource {
 variables {
   org_id             = "123456789012"
   billing_account_id = "000000-000000-000000"
-  seed_project_id    = "ncair-test-seed"
   project_prefix     = "ncair-test"
   alert_email        = "alerts@example.com"
 }

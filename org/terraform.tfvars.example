@@ -1,7 +1,6 @@
 # Local runs only. In CI these come from repository variables as TF_VAR_*.
 org_id             = "000000000000"
 billing_account_id = "000000-000000-000000"
-seed_project_id    = "ncair-xxxx-seed"
 project_prefix     = "ncair-xxxx"
 alert_email        = "alerts@lab.clearwatertech.co"
 
