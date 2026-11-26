@@ -13,6 +13,8 @@ module "kill_switch" {
 }
 
 resource "google_billing_budget" "estate" {
+  depends_on = [google_org_policy_policy.observability_allow_budget_publisher]
+
   billing_account = var.billing_account_id
   display_name    = "Northcrest estate (monthly)"
 

@@ -63,6 +63,21 @@ resource "google_org_policy_policy" "flight_ops_domain_restriction" {
   }
 }
 
+# New orgs ship with domain-restricted sharing at org level. Cloud Billing
+# grants its own Google account (not in any directory) publisher on the
+# budget topic, which that blocks, so lift it on the observability project
+# only. The OTel edge there still needs no allUsers (invoker IAM is off).
+resource "google_org_policy_policy" "observability_allow_budget_publisher" {
+  name   = "projects/${module.project["observability"].project_id}/policies/iam.allowedPolicyMemberDomains"
+  parent = "projects/${module.project["observability"].project_id}"
+
+  spec {
+    rules {
+      allow_all = "TRUE"
+    }
+  }
+}
+
 resource "google_org_policy_policy" "flight_ops_no_external_ip" {
   name   = "${google_folder.unit["flight-operations"].name}/policies/compute.vmExternalIpAccess"
   parent = google_folder.unit["flight-operations"].name
