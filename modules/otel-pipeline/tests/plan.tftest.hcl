@@ -141,7 +141,7 @@ run "edge_can_be_disabled" {
   }
 
   assert {
-    condition     = length(google_cloud_run_v2_service.edge) == 0 && length(google_cloud_run_v2_service_iam_member.edge_public) == 0
+    condition     = length(google_cloud_run_v2_service.edge) == 0
     error_message = "enable_edge = false must remove the public endpoint."
   }
 }

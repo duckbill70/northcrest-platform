@@ -112,7 +112,20 @@ locals {
     "monitoring.googleapis.com",
   ]
 
-  workload_project_ids = [for k, m in module.project : m.project_id if k != "observability"]
+  # Where each business unit's workloads run while its own project is
+  # unbilled. Flight operations is never folded in, so the safety-critical
+  # tier keeps its own project and policies.
+  workload_hosts = {
+    platform    = "observability"
+    airport-ops = "customer"
+    commercial  = "observability"
+  }
+  workload_home = {
+    for k in keys(local.projects) :
+    k => contains(var.unbilled_projects, k) ? local.workload_hosts[k] : k
+  }
+
+  workload_project_ids = [for k, m in module.project : m.project_id if k != "observability" && !contains(var.unbilled_projects, k)]
   all_project_ids      = [for m in module.project : m.project_id]
   non_core_project_ids = [for k, p in local.projects : module.project[k].project_id if !p.core]
 }

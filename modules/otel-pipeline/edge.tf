@@ -11,6 +11,14 @@ resource "google_cloud_run_v2_service" "edge" {
   ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = false
 
+  # Browsers cannot attach Google credentials, so the endpoint is public. The
+  # org's default domain-restricted sharing policy forbids allUsers, so turn
+  # off Cloud Run's invoker check instead of granting allUsers run.invoker.
+  # The config limits what it accepts; max instances and the budget limit
+  # the cost.
+  #checkov:skip=CKV_GCP_102:Public by design: browsers send real-user telemetry here. See edge.yaml for the limits.
+  invoker_iam_disabled = true
+
   template {
     service_account                  = google_service_account.edge.email
     timeout                          = "30s"
@@ -58,17 +66,4 @@ resource "google_cloud_run_v2_service" "edge" {
   }
 
   depends_on = [google_pubsub_topic_iam_member.edge]
-}
-
-# Browsers cannot attach Google credentials, so the endpoint is public. The
-# config limits what it accepts; max instances and the budget limit the cost.
-resource "google_cloud_run_v2_service_iam_member" "edge_public" {
-  #checkov:skip=CKV_GCP_102:Public by design: browsers send real-user telemetry here. See edge.yaml for the limits.
-  count = var.enable_edge ? 1 : 0
-
-  project  = var.project_id
-  location = var.region
-  name     = google_cloud_run_v2_service.edge[0].name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
 }

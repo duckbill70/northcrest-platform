@@ -7,3 +7,7 @@ region             = "us-central1"
 
 github_owner    = "duckbill70"
 github_owner_id = "28783106"
+
+# Needed when the repo uses immutable OIDC subjects; check with
+#   gh api repos/duckbill70/northcrest-platform/actions/oidc/customization/sub
+platform_repository_id = "1472024379"

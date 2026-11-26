@@ -23,6 +23,17 @@ variable "project_prefix" {
   }
 }
 
+variable "unbilled_projects" {
+  description = "Projects kept without billing because the billing account has hit its linked-project limit (the Free Trial allows 5, including the seed). Their workloads run in the project named in local.workload_home until they are split back out: empty this set once the limit is raised."
+  type        = set(string)
+  default     = ["airport-ops", "commercial"]
+
+  validation {
+    condition     = alltrue([for k in var.unbilled_projects : contains(["platform", "airport-ops", "commercial"], k)])
+    error_message = "Only platform, airport-ops and commercial can be left unbilled; observability, customer and flight-ops host the others."
+  }
+}
+
 variable "region" {
   type    = string
   default = "us-central1"

@@ -43,9 +43,17 @@ locals {
   # Any workflow run in the platform repo (pull requests, scheduled drift checks).
   plan_principal = "principalSet://iam.googleapis.com/${local.pool_name}/attribute.repository/${var.github_owner}/${var.platform_repository}"
 
+  # GitHub's OIDC subject prefix. Repositories with immutable subjects embed
+  # the owner and repository IDs.
+  subject_repo = (
+    var.platform_repository_id == ""
+    ? "repo:${var.github_owner}/${var.platform_repository}"
+    : "repo:${var.github_owner}@${var.github_owner_id}/${var.platform_repository}@${var.platform_repository_id}"
+  )
+
   # Only jobs that declare `environment: production`, which GitHub gates
   # behind a required reviewer.
-  apply_principal = "principal://iam.googleapis.com/${local.pool_name}/subject/repo:${var.github_owner}/${var.platform_repository}:environment:${var.apply_environment}"
+  apply_principal = "principal://iam.googleapis.com/${local.pool_name}/subject/${local.subject_repo}:environment:${var.apply_environment}"
 }
 
 resource "google_service_account_iam_member" "plan_wif" {

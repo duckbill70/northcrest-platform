@@ -34,6 +34,21 @@ mock_provider "google" {
   }
 }
 
+# imports.tf adopts these; mock providers can't import, so stub them.
+override_resource {
+  target = google_org_policy_policy.boolean["iam.automaticIamGrantsForDefaultServiceAccounts"]
+  values = {
+    name = "organizations/123456789012/policies/iam.automaticIamGrantsForDefaultServiceAccounts"
+  }
+}
+
+override_resource {
+  target = google_org_policy_policy.boolean["storage.uniformBucketLevelAccess"]
+  values = {
+    name = "organizations/123456789012/policies/storage.uniformBucketLevelAccess"
+  }
+}
+
 variables {
   org_id             = "123456789012"
   billing_account_id = "000000-000000-000000"
@@ -59,6 +74,43 @@ run "hierarchy" {
     condition     = module.project["flight-ops"].project_id == "ncair-test-flight-ops"
     error_message = "Project IDs must be prefix-key."
   }
+}
+
+run "unbilled_projects_fold_into_hosts" {
+  command = plan
+
+  assert {
+    condition     = !module.project["airport-ops"].billed && !module.project["commercial"].billed && module.project["flight-ops"].billed && module.project["platform"].billed
+    error_message = "By default only airport-ops and commercial are unbilled."
+  }
+
+  assert {
+    condition     = output.workload_projects["airport-ops"] == "ncair-test-customer" && output.workload_projects["commercial"] == "ncair-test-observability" && output.workload_projects["flight-ops"] == "ncair-test-flight-ops"
+    error_message = "Unbilled units must deploy to their host project; flight-ops stays on its own."
+  }
+}
+
+run "all_projects_billed_when_limit_raised" {
+  command = plan
+
+  variables {
+    unbilled_projects = []
+  }
+
+  assert {
+    condition     = alltrue([for k, m in module.project : m.billed]) && output.workload_projects["commercial"] == "ncair-test-commercial"
+    error_message = "An empty unbilled_projects must bill every project and give each unit its own."
+  }
+}
+
+run "flight_ops_cannot_be_unbilled" {
+  command = plan
+
+  variables {
+    unbilled_projects = ["flight-ops"]
+  }
+
+  expect_failures = [var.unbilled_projects]
 }
 
 run "kill_switch_never_detaches_core_projects" {
