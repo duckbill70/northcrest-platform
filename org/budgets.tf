@@ -7,7 +7,7 @@ module "kill_switch" {
 
   project_id           = module.project["observability"].project_id
   region               = var.region
-  target_project_ids   = local.all_project_ids
+  target_project_ids   = local.billed_project_ids
   non_core_project_ids = local.non_core_project_ids
   dry_run              = var.kill_switch_dry_run
 }

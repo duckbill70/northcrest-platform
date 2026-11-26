@@ -132,6 +132,6 @@ locals {
   }
 
   workload_project_ids = [for k, m in module.project : m.project_id if k != "observability" && !contains(var.unbilled_projects, k)]
-  all_project_ids      = [for m in module.project : m.project_id]
+  billed_project_ids   = [for k, m in module.project : m.project_id if !contains(var.unbilled_projects, k)]
   non_core_project_ids = [for k, p in local.projects : module.project[k].project_id if !p.core]
 }
