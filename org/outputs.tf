@@ -33,3 +33,18 @@ output "otel_topics" {
   description = "Pub/Sub ingest topics for collector sidecars."
   value       = module.otel.topics
 }
+
+output "passenger" {
+  description = "Settings for the northcrest-services and northcrest-web workflows (set as repository variables there)."
+  value = {
+    project          = local.passenger_project
+    region           = var.region
+    registry         = "${var.region}-docker.pkg.dev/${local.passenger_project}/${google_artifact_registry_repository.services.repository_id}"
+    runtime_accounts = { for k, sa in google_service_account.passenger_api : k => sa.email }
+    deploy_accounts  = { for k, sa in google_service_account.deployer : k => sa.email }
+    hosting_sites    = local.passenger_sites
+    wif_provider     = "${local.wif_pool}/providers/github-actions"
+    otel_edge_url    = module.otel.edge_url
+    otel_topics      = module.otel.topics
+  }
+}
