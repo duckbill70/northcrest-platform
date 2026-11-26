@@ -68,12 +68,15 @@ processors:
           - set(attributes["northcrest.crew_id"], SHA256(attributes["northcrest.crew_id"])) where attributes["northcrest.crew_id"] != nil
           - delete_key(attributes, "client.address")
           - delete_key(attributes, "http.client_ip")
+          - delete_key(attributes, "network.peer.address")
     log_statements:
       - context: log
         statements:
           - set(attributes["northcrest.passenger_id"], SHA256(attributes["northcrest.passenger_id"])) where attributes["northcrest.passenger_id"] != nil
           - set(attributes["northcrest.crew_id"], SHA256(attributes["northcrest.crew_id"])) where attributes["northcrest.crew_id"] != nil
           - delete_key(attributes, "client.address")
+          - delete_key(attributes, "http.client_ip")
+          - delete_key(attributes, "network.peer.address")
 
   # RED metrics come from server and consumer spans only, so a call is not
   # counted twice (once by the caller, once by the callee).
@@ -128,13 +131,17 @@ processors:
 
   # Cost guard. Metrics are billed by bytes after the free 150 MiB per
   # billing account; a single high-cardinality metric can cost more than the
-  # whole estate. Only metrics on this list are exported. Adding a metric is
-  # a pull request against this file.
+  # whole estate. Only metrics on this list are exported, by exact name for
+  # Northcrest's own metrics (never a prefix: the edge is public, so a prefix
+  # would let anyone create new series). Adding a metric is a pull request
+  # against this file.
+  #   northcrest.red.calls / northcrest.red.duration  span metrics below
+  #   northcrest.web.lcp / .inp / .cls                browser Core Web Vitals
   filter/metric_allowlist:
     error_mode: ignore
     metrics:
       metric:
-        - 'not IsMatch(name, "^(system\\.(cpu|memory|filesystem)\\.utilization|system\\.cpu\\.load_average\\..+|system\\.network\\.io|otelcol_(exporter|receiver|processor)_.+|northcrest\\..+|k6_.+)$")'
+        - 'not IsMatch(name, "^(system\\.(cpu|memory|filesystem)\\.utilization|system\\.cpu\\.load_average\\..+|system\\.network\\.io|otelcol_(exporter|receiver|processor)_.+|northcrest\\.red\\.(calls|duration)|northcrest\\.web\\.(lcp|inp|cls)|k6_.+)$")'
 
   # Traces and logs go to the observability project: one place to search.
   # The source project stays visible as cloud.account.id.

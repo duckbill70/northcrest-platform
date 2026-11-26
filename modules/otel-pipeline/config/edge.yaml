@@ -4,6 +4,7 @@
 #   - CORS limits which sites can send from a browser
 #   - requests are capped at 1 MiB and instances at edge_max_instances
 #   - anything not from a northcrest-* service is dropped
+#   - the only metrics accepted are the browser Core Web Vitals
 #   - client addresses are removed before the data goes anywhere
 # Then it publishes to Pub/Sub for the gateway, which applies the rest of
 # the policy.
@@ -47,6 +48,15 @@ processors:
       log_record:
         - not IsMatch(resource.attributes["service.name"], "^northcrest-")
 
+  # The only metrics a browser may send are the Core Web Vitals. Everything
+  # else (including other northcrest.* names) is dropped here, so a public
+  # sender cannot create new metric series.
+  filter/web_vitals_only:
+    error_mode: ignore
+    metrics:
+      metric:
+        - 'not IsMatch(name, "^northcrest\\.web\\.(lcp|inp|cls)$")'
+
   transform/scrub:
     error_mode: ignore
     trace_statements:
@@ -58,10 +68,20 @@ processors:
           - delete_key(attributes, "client.address")
           - delete_key(attributes, "http.client_ip")
           - delete_key(attributes, "network.peer.address")
+    metric_statements:
+      - context: resource
+        statements:
+          - delete_key(attributes, "client.address")
+      - context: datapoint
+        statements:
+          - delete_key(attributes, "client.address")
+          - delete_key(attributes, "network.peer.address")
     log_statements:
       - context: log
         statements:
           - delete_key(attributes, "client.address")
+          - delete_key(attributes, "http.client_ip")
+          - delete_key(attributes, "network.peer.address")
 
   resource/edge:
     attributes:
@@ -112,7 +132,7 @@ service:
       exporters: [googlecloudpubsub/traces]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, filter/foreign, resource/edge]
+      processors: [memory_limiter, filter/foreign, filter/web_vitals_only, transform/scrub, resource/edge]
       exporters: [googlecloudpubsub/metrics]
     logs:
       receivers: [otlp]

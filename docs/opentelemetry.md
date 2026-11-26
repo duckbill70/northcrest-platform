@@ -100,7 +100,17 @@ service, tier and status code, not per route: per-route series for 15
 services with 8 routes each would be about 430 MiB a month on their own. The gateway only
 exports metrics on its allowlist (`filter/metric_allowlist` in
 `gateway.yaml`), so a new metric needs a pull request, and the pull request
-is where its cost is discussed.
+is where its cost is discussed. Northcrest's own metrics are listed by exact
+name, never by prefix: `northcrest.red.calls` and `northcrest.red.duration`
+(span metrics) and `northcrest.web.lcp`, `northcrest.web.inp` and
+`northcrest.web.cls` (Core Web Vitals from the browser). The public edge
+collector accepts only those three web-vitals metrics, so an outside sender
+cannot create new series.
+
+Client network addresses (`client.address`, `http.client_ip`,
+`network.peer.address`) are removed at the edge and again at the gateway,
+because service sidecars publish straight to Pub/Sub and never pass through
+the edge.
 
 ## What it shows off
 
