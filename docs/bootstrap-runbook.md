@@ -25,7 +25,13 @@ are ready to run step 4 onwards.
 4. Optional now, needed for `iam.tf`: create groups in the Admin console,
    for example `gcp-org-admins@`, `nc-sre@`, `nc-developers@`,
    `nc-safety-approvers@`.
-5. Note the **customer ID** (Admin console > Account > Account settings,
+5. **Create the organisation.** Verifying the domain is not always enough,
+   and creating a project did not trigger it either. Sign in to
+   https://console.cloud.google.com/cloud-setup/organization as the super
+   admin and complete only the **Organisation** step. Ignore the other setup
+   steps; Terraform does those. The project picker should then list
+   `lab.clearwatertech.co` as an organisation.
+6. Note the **customer ID** (Admin console > Account > Account settings,
    starts with `C`) for `directory_customer_id`.
 
 ## 2. Pick names
