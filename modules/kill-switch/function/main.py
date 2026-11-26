@@ -114,12 +114,28 @@ def detach_billing(project: str, dry_run: bool) -> None:
         )
 
 
+_NOTHING_TO_DO = (
+    "has not been used in project",  # API off: no VMs or jobs can exist
+    "SERVICE_DISABLED",
+    "requires billing to be enabled",  # unbilled project: nothing can run
+)
+
+
+def _nothing_to_do(exc: Exception) -> bool:
+    text = str(exc)
+    return any(marker in text for marker in _NOTHING_TO_DO)
+
+
 def _each(projects: list[str], fn, *args) -> None:
     """Run an action per project; one failing project must not stop the rest."""
     for project in projects:
         try:
             fn(project, *args)
         except Exception as exc:  # noqa: BLE001
+            if _nothing_to_do(exc):
+                log("INFO", "skipped, API off or no billing", project=project,
+                    action=fn.__name__)
+                continue
             log("ERROR", "action failed", project=project,
                 action=fn.__name__, error=str(exc))
 

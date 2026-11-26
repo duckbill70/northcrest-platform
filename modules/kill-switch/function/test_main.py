@@ -57,3 +57,20 @@ def test_handler_runs_both_stages_in_dry_run(monkeypatch):
     assert kinds == ["stop", "pause", "detach"]
     # dry_run flag (last arg) is passed through as True
     assert all(c[1][-1] is True for c in calls)
+
+
+def test_disabled_api_is_skipped_not_an_error(capsys):
+    def fails(project):
+        raise RuntimeError(
+            "403 Cloud Scheduler API has not been used in project p1 before")
+    main._each(["p1"], fails)
+    entry = json.loads(capsys.readouterr().out)
+    assert entry["severity"] == "INFO" and entry["action"] == "fails"
+
+
+def test_other_failures_are_errors(capsys):
+    def fails(project):
+        raise RuntimeError("403 Permission denied on resource")
+    main._each(["p1"], fails)
+    entry = json.loads(capsys.readouterr().out)
+    assert entry["severity"] == "ERROR"
