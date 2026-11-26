@@ -167,9 +167,12 @@ resource "google_service_account_iam_member" "deployer_wif" {
   member             = "principalSet://iam.googleapis.com/${local.wif_pool}/attribute.repository/${var.github_owner}/northcrest-${each.key}"
 }
 
+# run.admin rather than run.developer: the services deploy with Cloud Run's
+# invoker check off (the org forbids allUsers), and turning that off needs
+# run.services.setIamPolicy.
 resource "google_project_iam_member" "deploy_services" {
   for_each = toset([
-    "roles/run.developer",
+    "roles/run.admin",
     "roles/serviceusage.serviceUsageConsumer",
   ])
 
