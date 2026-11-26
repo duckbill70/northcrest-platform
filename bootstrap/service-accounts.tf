@@ -14,12 +14,14 @@ resource "google_service_account" "tf_apply" {
 
 locals {
   # Read-only view of the whole org, including IAM and org policies, so plans
-  # can refresh every resource.
+  # can refresh every resource. serviceUsageConsumer lets the provider bill
+  # each call to the resource's own project (user_project_override in org/).
   plan_org_roles = [
     "roles/browser",
     "roles/iam.securityReviewer",
     "roles/orgpolicy.policyViewer",
     "roles/resourcemanager.folderViewer",
+    "roles/serviceusage.serviceUsageConsumer",
     "roles/viewer",
   ]
 
@@ -34,6 +36,7 @@ locals {
     "roles/resourcemanager.folderAdmin",
     "roles/resourcemanager.projectCreator",
     "roles/resourcemanager.projectDeleter",
+    "roles/serviceusage.serviceUsageConsumer",
   ]
 }
 
@@ -74,7 +77,7 @@ resource "google_billing_account_iam_member" "plan_viewer" {
   member             = google_service_account.tf_plan.member
 }
 
-# Both accounts bill their API calls to the seed project.
+# Org-level calls (folders, org policy, budgets) are billed to the seed.
 resource "google_project_iam_member" "quota_consumer" {
   for_each = {
     plan  = google_service_account.tf_plan.member
