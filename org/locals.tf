@@ -106,8 +106,14 @@ locals {
   }
 
   # Services every project gets, for monitoring and cost visibility.
+  # cloudresourcemanager and serviceusage must be on in each project because
+  # the provider bills calls to the resource's own project
+  # (user_project_override); a new project needs them enabled once by hand
+  # before its first apply (see docs/bootstrap-runbook.md).
   common_services = [
     "cloudbilling.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "serviceusage.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
   ]

@@ -21,13 +21,14 @@ terraform {
 provider "google" {
   region = var.region
 
-  # No quota-project override. Calls on a project's resources are billed and
-  # quota-checked against that project, where the module enables the APIs.
-  # Org-level calls (folders, org policy, budgets) fall back to the calling
-  # service account's own project, the seed, which has those APIs enabled.
-  # (billing_project = seed sent every call to the seed, so e.g. Pub/Sub in
-  # the observability project failed with SERVICE_DISABLED on the seed.)
-  user_project_override = false
+  # Bill and quota-check each call against the resource's own project, where
+  # modules/project enables the APIs. Without this, Pub/Sub, BigQuery and
+  # others charge the credentials' project (the seed) and fail with
+  # SERVICE_DISABLED there. No billing_project: that would send every call to
+  # the seed. Project-less calls (folders, org policy, budgets) still use the
+  # seed. Needs serviceusage.services.use on each project (bootstrap grants
+  # serviceUsageConsumer at org level to both Terraform accounts).
+  user_project_override = true
 
   default_labels = {
     managed-by = "terraform"
