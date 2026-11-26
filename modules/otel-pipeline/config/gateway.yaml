@@ -29,18 +29,23 @@ receivers:
 
   # One topic and subscription per signal, so a backlog in one does not
   # hide another, and each shows separately on the pipeline dashboard.
+  #
+  # No `encoding` here on purpose. The publishers (sidecars, edge) gzip
+  # their messages and label them with ce-type, content-type and
+  # content-encoding, and the receiver decodes from those attributes. With
+  # `encoding` set, the receiver skips decompression (upstream issue
+  # open-telemetry/opentelemetry-collector-contrib#45810), every message
+  # fails to decode, is nacked and redelivered forever, and the failure is
+  # only logged at debug level.
   googlecloudpubsub/traces:
     project: ${env:OTEL_PROJECT_ID}
     subscription: projects/${env:OTEL_PROJECT_ID}/subscriptions/otel-traces-gateway
-    encoding: otlp_proto_trace
   googlecloudpubsub/metrics:
     project: ${env:OTEL_PROJECT_ID}
     subscription: projects/${env:OTEL_PROJECT_ID}/subscriptions/otel-metrics-gateway
-    encoding: otlp_proto_metric
   googlecloudpubsub/logs:
     project: ${env:OTEL_PROJECT_ID}
     subscription: projects/${env:OTEL_PROJECT_ID}/subscriptions/otel-logs-gateway
-    encoding: otlp_proto_log
 
 processors:
   memory_limiter:
