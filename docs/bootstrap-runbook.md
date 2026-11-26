@@ -98,7 +98,18 @@ If an API call complains about a missing quota project, run
 
 `terraform output github_repository_variables` prints most of these. Add
 them under Settings > Secrets and variables > Actions > **Variables** (none
-are secrets):
+are secrets). With the GitHub CLI, from `bootstrap/`:
+
+```
+terraform output -json github_repository_variables | \
+  jq -r 'to_entries[] | "\(.key)\t\(.value)"' | \
+  while IFS=$'\t' read k v; do gh variable set "$k" --body "$v"; done
+gh variable set KILL_SWITCH_DRY_RUN --body "true"
+gh variable set ALERT_EMAIL --body "<an address you read>"
+```
+
+The repo is public and `ALERT_EMAIL` appears in plan comments, so consider
+an alias.
 
 | Variable | Example |
 |---|---|
@@ -122,7 +133,9 @@ are secrets):
    `Plan (org)` job comments the plan: expect 5 folders, 6 projects, org
    policies, budgets and the kill switch.
 2. Merge. `Terraform apply` waits for your approval on `production`;
-   approve it.
+   approve it. The apply only runs on its own for changes under `org/`,
+   `modules/` or `.terraform-version`; after a docs-only merge, start it from
+   Actions > Terraform apply > Run workflow.
 3. If it fails with a billing quota error, see "Linked-project limit" in the
    README.
 
