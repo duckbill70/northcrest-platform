@@ -149,9 +149,12 @@ an alias.
 
 If the apply fails with "Cloud Resource Manager API has not been used in
 project <prefix>-<name>", enable it once on the billed projects, then re-run
-the apply:
+the apply. Organisation Admin alone can't enable APIs, so grant your admin
+account Service Usage Admin first:
 
 ```
+gcloud organizations add-iam-policy-binding <org_id> \
+  --member=user:<admin> --role=roles/serviceusage.serviceUsageAdmin --condition=None
 for p in observability platform customer flight-ops; do
   gcloud services enable cloudresourcemanager.googleapis.com serviceusage.googleapis.com \
     --project=<prefix>-$p
