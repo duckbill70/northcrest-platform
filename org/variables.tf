@@ -102,3 +102,23 @@ variable "github_owner" {
   type        = string
   default     = "duckbill70"
 }
+
+variable "github_owner_id" {
+  description = "Numeric ID of the GitHub owner, for OIDC subjects in the immutable-ID format."
+  type        = string
+  default     = "28783106"
+}
+
+variable "deploy_repository_ids" {
+  description = "Numeric repository IDs of the repos that deploy, keyed services and web (northcrest-<key>)."
+  type        = map(string)
+  default = {
+    services = "1473158137"
+    web      = "1473158680"
+  }
+
+  validation {
+    condition     = alltrue([for k, v in var.deploy_repository_ids : contains(["services", "web"], k) && can(regex("^[0-9]+$", v))])
+    error_message = "deploy_repository_ids takes the keys services and web, with numeric IDs."
+  }
+}

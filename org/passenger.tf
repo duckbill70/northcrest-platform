@@ -157,14 +157,28 @@ resource "google_service_account" "deployer" {
   display_name = "GitHub deploys from northcrest-${each.key}"
 }
 
-# Tokens from any workflow in the repo may use its deploy account. The
-# workflows deploy only from main; see the repos' README for the rule.
-resource "google_service_account_iam_member" "deployer_wif" {
-  for_each = google_service_account.deployer
+# Only jobs that declare `environment: production` in the deploying repo can
+# use its deploy account, and the repos limit that environment to main. A
+# pull request can't add a workflow that borrows the account. The subject is
+# bound in both GitHub formats (plain names, and names with immutable IDs),
+# since which one a repo's tokens carry depends on its OIDC settings.
+locals {
+  deploy_subjects = {
+    for key, id in var.deploy_repository_ids : key => [
+      "repo:${var.github_owner}/northcrest-${key}:environment:production",
+      "repo:${var.github_owner}@${var.github_owner_id}/northcrest-${key}@${id}:environment:production",
+    ]
+  }
+}
 
-  service_account_id = each.value.name
+resource "google_service_account_iam_member" "deployer_wif" {
+  for_each = { for pair in flatten([
+    for key, subjects in local.deploy_subjects : [for i, s in subjects : { key = "${key}/${i}", repo = key, subject = s }]
+  ]) : pair.key => pair }
+
+  service_account_id = google_service_account.deployer[each.value.repo].name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${local.wif_pool}/attribute.repository/${var.github_owner}/northcrest-${each.key}"
+  member             = "principal://iam.googleapis.com/${local.wif_pool}/subject/${each.value.subject}"
 }
 
 # run.admin rather than run.developer: the services deploy with Cloud Run's

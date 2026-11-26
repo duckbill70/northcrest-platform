@@ -243,8 +243,16 @@ run "passenger_platform" {
   }
 
   assert {
-    condition     = google_service_account_iam_member.deployer_wif["services"].member == "principalSet://iam.googleapis.com/projects/333333333333/locations/global/workloadIdentityPools/github/attribute.repository/duckbill70/northcrest-services"
-    error_message = "Only northcrest-services may use the services deploy account."
+    condition = toset([for k, b in google_service_account_iam_member.deployer_wif : b.member if startswith(k, "services/")]) == toset([
+      "principal://iam.googleapis.com/projects/333333333333/locations/global/workloadIdentityPools/github/subject/repo:duckbill70/northcrest-services:environment:production",
+      "principal://iam.googleapis.com/projects/333333333333/locations/global/workloadIdentityPools/github/subject/repo:duckbill70@28783106/northcrest-services@1473158137:environment:production",
+    ])
+    error_message = "Only production-environment jobs in northcrest-services may use the services deploy account."
+  }
+
+  assert {
+    condition     = length(google_service_account_iam_member.deployer_wif) == 4
+    error_message = "Expected two subject bindings for each deploy account."
   }
 
   assert {
