@@ -147,6 +147,20 @@ an alias.
 3. If it fails with a billing quota error, see "Linked-project limit" in the
    README.
 
+If the apply fails with "Cloud Resource Manager API has not been used in
+project <prefix>-<name>", enable it once on the billed projects, then re-run
+the apply:
+
+```
+for p in observability platform customer flight-ops; do
+  gcloud services enable cloudresourcemanager.googleapis.com serviceusage.googleapis.com \
+    --project=<prefix>-$p
+done
+```
+
+Terraform bills each call to the resource's own project, and it needs these
+two APIs there to read the project's other APIs.
+
 ## 8. Billing export
 
 Console > Billing > Billing export > BigQuery export: turn on **Detailed
