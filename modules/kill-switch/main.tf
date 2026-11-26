@@ -66,6 +66,13 @@ resource "google_project_iam_member" "billing" {
   member  = google_service_account.runtime.member
 }
 
+# Eventarc checks that the trigger's account may use the project.
+resource "google_project_iam_member" "service_usage" {
+  project = var.project_id
+  role    = "roles/serviceusage.serviceUsageConsumer"
+  member  = google_service_account.runtime.member
+}
+
 # --- Source -----------------------------------------------------------------
 
 resource "google_storage_bucket" "source" {
@@ -152,7 +159,7 @@ resource "google_cloudfunctions2_function" "kill_switch" {
     service_account_email = google_service_account.runtime.email
   }
 
-  depends_on = [google_project_iam_member.build]
+  depends_on = [google_project_iam_member.build, google_project_iam_member.service_usage]
 }
 
 # The Eventarc trigger calls the function as the runtime account.

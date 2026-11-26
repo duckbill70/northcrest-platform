@@ -14,6 +14,9 @@ locals {
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     "orgpolicy.googleapis.com",
+    # Pub/Sub subscription IAM calls ignore user_project_override and are
+    # quota-checked here, not in the subscription's project.
+    "pubsub.googleapis.com",
     "serviceusage.googleapis.com",
     "storage.googleapis.com",
     "sts.googleapis.com",

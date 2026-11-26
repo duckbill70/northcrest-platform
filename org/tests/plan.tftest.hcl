@@ -161,6 +161,15 @@ run "region_locked" {
   }
 }
 
+run "budget_topic_project_allows_billing_publisher" {
+  command = plan
+
+  assert {
+    condition     = google_org_policy_policy.observability_allow_budget_publisher.parent == "projects/ncair-test-observability"
+    error_message = "Domain-restricted sharing must be lifted on the observability project only."
+  }
+}
+
 run "domain_restriction_only_with_customer_id" {
   command = plan
 
