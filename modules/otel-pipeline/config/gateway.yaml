@@ -121,13 +121,18 @@ processors:
 
   # Span metrics are per service, not per instance: drop instance-level
   # resource attributes so each service is one time series, not one per
-  # Cloud Run instance.
+  # Cloud Run instance. The googlecloud exporter only writes a generic_task
+  # resource (job = service.name) when service.instance.id is present;
+  # without it the series fall back to generic_node with an empty node_id
+  # and Monitoring drops them. One gateway computes all span metrics, so a
+  # fixed instance id keeps one series per service.
   transform/red_resource:
     error_mode: ignore
     metric_statements:
       - context: resource
         statements:
           - keep_keys(attributes, ["service.name", "service.namespace"])
+          - set(attributes["service.instance.id"], "otel-gateway")
 
   # Cost guard. Metrics are billed by bytes after the free 150 MiB per
   # billing account; a single high-cardinality metric can cost more than the
