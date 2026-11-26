@@ -75,6 +75,14 @@ resource "google_firebaserules_ruleset" "firestore_deny_all" {
   depends_on = [google_firestore_database.passenger]
 }
 
+# The plan account's roles/viewer doesn't cover Firebase rules, so without
+# this every plan fails refreshing the ruleset above.
+resource "google_project_iam_member" "plan_reads_rules" {
+  project = local.passenger_project
+  role    = "roles/firebaserules.viewer"
+  member  = "serviceAccount:tf-plan@${data.google_project.seed.project_id}.iam.gserviceaccount.com"
+}
+
 resource "google_firebaserules_release" "firestore" {
   project      = local.passenger_project
   name         = "cloud.firestore"

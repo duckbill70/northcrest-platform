@@ -23,8 +23,10 @@ module "otel" {
   # The passenger APIs run the collector sidecar, so they publish telemetry.
   # Members are spelled out rather than read from the accounts, because
   # for_each keys must be known at plan time and new accounts' are not.
+  # Looping over the account resources (keys only) still makes the grants
+  # wait until the accounts exist.
   publisher_members = distinct(concat(
-    [for id in values(local.passenger_apis) : "serviceAccount:${id}@${local.passenger_project}.iam.gserviceaccount.com"],
+    [for api, _ in google_service_account.passenger_api : "serviceAccount:${local.passenger_apis[api]}@${local.passenger_project}.iam.gserviceaccount.com"],
     var.otel.publisher_members,
   ))
   iap_ssh_members         = var.groups.sre == "" ? [] : ["group:${var.groups.sre}"]
