@@ -34,6 +34,21 @@ mock_provider "google" {
   }
 }
 
+# imports.tf adopts these; mock providers can't import, so stub them.
+override_resource {
+  target = google_org_policy_policy.boolean["iam.automaticIamGrantsForDefaultServiceAccounts"]
+  values = {
+    name = "organizations/123456789012/policies/iam.automaticIamGrantsForDefaultServiceAccounts"
+  }
+}
+
+override_resource {
+  target = google_org_policy_policy.boolean["storage.uniformBucketLevelAccess"]
+  values = {
+    name = "organizations/123456789012/policies/storage.uniformBucketLevelAccess"
+  }
+}
+
 variables {
   org_id             = "123456789012"
   billing_account_id = "000000-000000-000000"
